@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block loadcss %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}" crossorigin="anonymous">
+{% endblock %}
+
+{% block content %}
+<p>The latest date is: {{ latest_date }}</p>
+<div class="row all_types">
+    <div class="col-lg-6">
+        <h5>Model-5 days: </h5>
+        <ul>
+        {% for stock_type, stock_data in stock_type_all.items %}
+            <li>
+                <div class="row">
+                    <div class="col-5"><p>{{ stock_type }}</p></div>
+                    <div class="col-4"><p>RMSE:{{ stock_data.stock_pred5.rmse }}</p></div>
+                    {% if 0 < stock_data.stock_close_pred5 %}
+                        <div class="col-3">
+                            <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_data.stock_close_pred5 }}%</a>
+                        </div>
+                    {% else %}
+                        <div class="col-3">
+                            <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_data.stock_close_pred5 }}%</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    <div class="col-lg-6">
+        <h5>Model-10 days: </h5>
+        <ul>
+        {% for stock_type, stock_data in stock_type_all.items %}
+            <li>
+                <div class="row">
+                    <div class="col-5"><p>{{ stock_type }}</p></div>
+                    <div class="col-4"><p>RMSE:{{ stock_data.stock_pred10.rmse }}</p></div>
+                    {% if 0 < stock_data.stock_close_pred10 %}
+                        <div class="col-3">
+                            <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_data.stock_close_pred10 }}%</a>
+                        </div>
+                    {% else %}
+                        <div class="col-3">
+                            <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_data.stock_close_pred10 }}%</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+
+
+{% endblock %}

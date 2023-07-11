@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block loadcss %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}" crossorigin="anonymous" xmlns="http://www.w3.org/1999/html">
+{% endblock %}
+
+{% block content %}
+{% if request.user.is_superuser %}
+<div class="row">
+    <div class="col-lg-4">
+        <form action="{% url 'update_daily_data' %}" method="POST" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="file" name="csv_file">
+          <button type="submit">Upload File</button>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <form action="{% url 'update_stock_types' %}" method="POST" enctype="multipart/form-data">
+          {% csrf_token %}
+          <input type="file" name="csv_file">
+          <button type="submit">Upload File</button>
+        </form>
+    </div>
+    <div class="col-lg-4">
+        <a href="{% url 'refresh' %}">Refresh</a>
+    </div>
+</div>
+{% endif %}
+<p>The latest date is: {{ latest_date }}</p>
+<div class="row all_types">
+    <div class="col-lg-7 stock-board">
+        <form method="post" action="{% url 'home' %}">
+        {% csrf_token %}
+        <div class="input-group">
+          <div>
+            <input type="search" name="stock_code" id="stock_code" placeholder="Search" class="form-control" />
+          </div>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-search"></i>
+          </button>
+        </div>
+        </form>
+        {% if trace_data %}
+        <div class="object-content-info">
+            <a>{{ trace_data_info.title }} {{ trace_data_info.title_name }}</a>
+            {% if trace_data_info.pred1_rmse %}
+            <a>RMSE-5d: {{ trace_data_info.pred1_rmse }}</a>
+            <a>RMSE-10d: {{ trace_data_info.pred2_rmse }}</a>
+            {% endif %}
+        </div>
+        <div class="object-content">
+          <div id="trace-chart"></div>
+        </div>
+        <div class="object-content-info">
+            <div class="row">
+                <div class="col-3">
+                    <a>Model-5d:</a>
+                </div>
+                <div class="col-3">
+                    <a>Close:{{ trace_data_info.close }} </a>
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred1_percentage %}
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred1}}</a>
+                    {% else %}
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred1}}</a>
+                    {% endif %}
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred1_percentage %}
+                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred1_percentage }}%</a>
+                    {% else %}
+                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred1_percentage }}%</a>
+                    {% endif %}
+                </div>
+                {% if trace_data_info.pred1_high_rate %}
+                <div class="col-3">
+                    <a>WP:{{ trace_data_info.pred1_high_rate }}%({{ trace_data_info.pred1_count }})</a>
+                </div>
+                <div class="col-3">
+                    <a>LP:{{trace_data_info.pred1_low_rate}}%</a>
+                </div>
+                <div class="col-3">
+                    <a>PWP:{{trace_data_info.pred1_pred_high_rate}}%({{trace_data_info.pred1_pred_count}})</a>
+                </div>
+                <div class="col-3">
+                    <a>PLP:{{trace_data_info.pred1_pred_low_rate}}%</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="object-content-info">
+            <div class="row">
+                <div class="col-3">
+                    <a>Model-10d:</a>
+                </div>
+                <div class="col-3">
+                    <a>Close:{{ trace_data_info.close }} </a>
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred2_percentage %}
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred2}}</a>
+                    {% else %}
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred2}}</a>
+                    {% endif %}
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred2_percentage %}
+                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred2_percentage }}%</a>
+                    {% else %}
+                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred2_percentage }}%</a>
+                    {% endif %}
+                </div>
+                {% if trace_data_info.pred2_high_rate %}
+                <div class="col-3">
+                    <a>WP:{{ trace_data_info.pred2_high_rate }}%({{ trace_data_info.pred2_count }})</a>
+                </div>
+                <div class="col-3">
+                    <a>LP:{{trace_data_info.pred2_low_rate}}%</a>
+                </div>
+                <div class="col-3">
+                    <a>PWP:{{trace_data_info.pred2_pred_high_rate}}%({{trace_data_info.pred2_pred_count}})</a>
+                </div>
+                <div class="col-3">
+                    <a>PLP:{{trace_data_info.pred2_pred_low_rate}}%</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="object-content-info">
+            <div class="row">
+                <div class="col-12">
+                    <a>RMSE:預測值及實際值的均方根誤差</a>
+                </div>
+                <div class="col-12">
+                    <a>WP:實際勝率. EX.6天漲4天跌,該股本身勝率為60%. LP:為敗率</a>
+                </div>
+                <div class="col-12">
+                    <a>PWP及PLP為預測的勝率及敗率.</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="object-content">
+            <h2>No Data</h2>
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-lg-5">
+        <div class="stock-board">
+            <h5>Model-5 days: </h5>
+            <ul>
+            {% for stock_info in pred5_stock_infos %}
+                <li class="stock-item" data-stock-code="{{ stock_info.stock_id }}">
+                    <form method="post" action="{% url 'home' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="stock_code" value={{ stock_info.stock_id }}>
+                    <div class="row stock_list">
+                        <div class="col-3"><p>{{ stock_info.stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
+                        <div class="col-3"><p>RMSE:{{ stock_info.stock_rmse }}</p></div>
+                        <div class="col-3"><p>價:{{ stock_info.stock_close }}</p></div>
+                        {% if 0 < stock_info.stock_percent %}
+                            <div class="col-3">
+                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.stock_percent }}%</a>
+                            </div>
+                        {% else %}
+                            <div class="col-3">
+                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.stock_percent }}%</a>
+                            </div>
+                        {% endif %}
+                        <div class="col-3"><p>WP:{{ stock_info.high_rate }}%({{ stock_info.count }})</p></div>
+                        <div class="col-3"><p>LP:{{ stock_info.low_rate }}%</p></div>
+                        <div class="col-3"><p>PWP:{{ stock_info.pred_high_rate }}%({{ stock_info.pred_count }})</p></div>
+                        <div class="col-3"><p>PLP:{{ stock_info.pred_low_rate }}%</p></div>
+                    </div>
+                    </form>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+        <div class="stock-board">
+            <h5>Model-10 days: </h5>
+            <ul>
+            {% for stock_info in pred10_stock_infos %}
+                <li class="stock-item" data-stock-code="{{ stock_info.stock_id }}">
+                    <form method="post" action="{% url 'home' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="stock_code" value={{ stock_info.stock_id }}>
+                    <div class="row stock_list">
+                        <div class="col-3"><p>{{ stock_info.stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
+                        <div class="col-3"><p>RMSE:{{ stock_info.stock_rmse }}</p></div>
+                        <div class="col-3"><p>價:{{ stock_info.stock_close }}</p></div>
+                        {% if 0 < stock_info.stock_percent %}
+                            <div class="col-3">
+                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.stock_percent }}%</a>
+                            </div>
+                        {% else %}
+                            <div class="col-3">
+                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.stock_percent }}%</a>
+                            </div>
+                        {% endif %}
+                        <div class="col-3"><p>WP:{{ stock_info.high_rate }}%({{ stock_info.count }})</p></div>
+                        <div class="col-3"><p>LP:{{ stock_info.low_rate }}%</p></div>
+                        <div class="col-3"><p>PWP:{{ stock_info.pred_high_rate }}%({{ stock_info.pred_count }})</p></div>
+                        <div class="col-3"><p>PLP:{{ stock_info.pred_low_rate }}%</p></div>
+                    </div>
+                    </form>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+  google.charts.load('current', {'packages':['corechart']});
+  google.charts.setOnLoadCallback(drawChart);
+
+  function drawChart() {
+    var data = google.visualization.arrayToDataTable([
+      ['date', 'model-5d', 'model-10d', 'close'],
+      {% for date, data in trace_data.items %}
+      ['{{ date|date:"Y-m-d" }}', {{data.prediction1}}, {{data.prediction2}}, {{data.price}}],
+      {% endfor %}
+    ]);
+
+    var options = {
+      chartArea: {width: '80%'},
+      width: '100%',
+      curveType: 'function',
+      legend: { position: 'bottom' }
+    };
+
+    var chart = new google.visualization.LineChart(document.getElementById('trace-chart'));
+    var traceChart = document.getElementById('trace-chart');
+
+    var width = traceChart.offsetWidth;
+    var height = width / 2; // Calculate height as half of the width
+    traceChart.style.height = height + 'px';
+    chart.draw(data, options);
+  }
+
+  function handleChartResize() {
+      // Clear the existing chart
+      var traceChart = document.getElementById('trace-chart');
+      traceChart.innerHTML = '';
+
+      // Call drawMultSeries() to redraw the chart
+      drawChart();
+    }
+
+    // Attach the resize event handler
+    window.onresize = handleChartResize;
+const stockItems = document.querySelectorAll('.stock-item');
+  stockItems.forEach((item) => {
+    item.addEventListener('click', function() {
+      const stockCode = this.dataset.stockCode;
+      const form = this.querySelector('form');
+      form.querySelector('input[name="stock_code"]').value = stockCode;
+      form.submit();
+    });
+  });
+</script>
+
+{% endblock %}

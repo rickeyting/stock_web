@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block loadcss %}
+<link rel="stylesheet" href="{% static 'css/home.css' %}" crossorigin="anonymous">
+{% endblock %}
+
+{% block content %}
+<p>The latest date is: {{ latest_date }}</p>
+<div class="row all_types">
+    <div class="col-lg-5">
+        <h5>庫存:</h5>
+        <ul>
+        {% for stock_data in mode_info.exist %}
+            <li class="stock-item" data-stock-code="{{ stock_data.stock_id }}">
+                <form method="post" action="{% url 'home' %}">
+                {% csrf_token %}
+                <input type="hidden" name="stock_code" value='{{ stock_data.stock_id }}'>
+                <div class="row">
+                    <div class="col-3"><p>{{ stock_data.get_stock_name }}({{ stock_data.stock_id }})</p></div>
+                    <div class="col-3"><p>{{ stock_data.buy_date|date:"Y-m-d" }}</p></div>
+                    <div class="col-3 row">
+                        <div class="col-12">
+                            <p>Buy:{{ stock_data.buy_price }}</p>
+                        </div>
+                        <div class="col-12">
+                            <p>Target:{{ stock_data.target }}</p>
+                        </div>
+                    </div>
+                    {% if stock_data.buy_price < stock_data.current_price %}
+                        <div class="col-3">
+                            <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_data }}</a>
+                        </div>
+                    {% elif stock_data.buy_price > stock_data.current_price %}
+                        <div class="col-3">
+                            <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_data }}</a>
+                        </div>
+                    {% else %}
+                        <div class="col-3">
+                            <a style="color: white;">{{ stock_data }}</a>
+                        </div>
+                    {% endif %}
+                </div>
+                </form>
+            </li>
+        {% endfor %}
+        </ul>
+        <h5>歷史紀錄:</h5>
+        <ul>
+        {% for stock_data in mode_info.sold %}
+            <li class="stock-item" data-stock-code="{{ stock_data.stock_id }}">
+                <form method="post" action="{% url 'home' %}">
+                {% csrf_token %}
+                <input type="hidden" name="stock_code" value='{{ stock_data.stock_id }}'>
+                <div class="row">
+                    <div class="col-3"><p>{{ stock_data.get_stock_name }}({{ stock_data.stock_id }})</p></div>
+                    <div class="col-6 row">
+                        <div class="col-8">
+                            <p>buy:{{ stock_data.buy_date|date:"Y-m-d" }}</p>
+                        </div>
+                        <div class="col-4">
+                            <p>{{ stock_data.buy_price }}</p>
+                        </div>
+                        <div class="col-8">
+                            <p>sell:{{ stock_data.sell_date|date:"Y-m-d" }}</p>
+                        </div>
+                        <div class="col-4">
+                            <p>{{ stock_data.sell_price }}</p>
+                        </div>
+                    </div>
+
+                    {% if stock_data.buy_price < stock_data.sell_price %}
+                        <div class="col-3">
+                            <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_data }}</a>
+                        </div>
+                    {% elif stock_data.buy_price > stock_data.sell_price %}
+                        <div class="col-3">
+                            <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_data }}</a>
+                        </div>
+                    {% else %}
+                        <div class="col-3">
+                            <a style="color: white;">{{ stock_data }}</a>
+                        </div>
+                    {% endif %}
+                </div>
+                </form>
+            </li>
+        {% endfor %}
+        </ul>
+    </div>
+    <div class="col-lg-7">
+        <div class="stock-board">
+            <div class="object-content-info">
+                <a>獲利分布</a>
+            </div>
+            <div class="object-content">
+              <div id="count-chart"></div>
+            </div>
+            <div class="object-content-info">
+                <a>總比數: {{ mode_info.count.total }}</a>
+                <a>勝率: {{ mode_info.count.chance }}%</a>
+                <a>眾數: {{ mode_info.count.mid }}%</a>
+                <a>平均值: {{ mode_info.count.mean }}%</a>
+            </div>
+        </div>
+        <div class="stock-board">
+            <div class="object-content-info">
+                <a>交易頻率分布</a>
+            </div>
+            <div class="object-content">
+              <div id="day-chart"></div>
+            </div>
+        </div>
+        <div class="stock-board">
+            <div class="object-content-info">
+                <a>累積獲利</a>
+            </div>
+            <div class="object-content">
+              <div id="earn-chart"></div>
+            </div>
+            <div class="object-content-info">
+                <a>總獲利(包含庫存):{{ mode_info.total_earnings }}%</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript">
+  google.charts.load('current', {packages: ['corechart', 'bar']});
+  google.charts.setOnLoadCallback(drawcountChart);
+
+  function drawcountChart() {
+    var data = google.visualization.arrayToDataTable([
+      ['Percentage', 'count'],
+      {% for percentage, count in mode_info.count.data %}
+      ['{{ percentage }}', {{count}}],
+      {% endfor %}
+    ]);
+
+    var options = {
+      chartArea: {width: '80%'},
+      title: '%',
+      width: '100%',
+      curveType: 'function',
+      legend: 'none'
+    };
+
+    var chart = new google.visualization.ColumnChart(document.getElementById('count-chart'));
+    var traceChart = document.getElementById('count-chart');
+
+    var width = traceChart.offsetWidth;
+    var height = width / 2; // Calculate height as half of the width
+    traceChart.style.height = height + 'px';
+    chart.draw(data, options);
+  }
+
+  google.charts.setOnLoadCallback(drawdayChart);
+
+  function drawdayChart() {
+    var data = google.visualization.arrayToDataTable([
+      ['day', 'count'],
+      {% for day, count in mode_info.days.data %}
+      ['{{ day }}', {{count}}],
+      {% endfor %}
+    ]);
+
+    var options = {
+      chartArea: {width: '80%'},
+      title: 'day',
+      width: '100%',
+      curveType: 'function',
+      legend: 'none'
+    };
+
+    var chart = new google.visualization.ColumnChart(document.getElementById('day-chart'));
+    var traceChart = document.getElementById('day-chart');
+
+    var width = traceChart.offsetWidth;
+    var height = width / 2; // Calculate height as half of the width
+    traceChart.style.height = height + 'px';
+    chart.draw(data, options);
+  }
+
+  google.charts.setOnLoadCallback(drawearnChart);
+
+  function drawearnChart() {
+    var data = google.visualization.arrayToDataTable([
+      ['date', 'sum'],
+      {% for date, total in mode_info.earn_sum.data.items %}
+      ['{{ date|date:"Y-m-d" }}', {{total}}],
+      {% endfor %}
+    ]);
+
+    var options = {
+      chartArea: {width: '80%'},
+      title: '%',
+      width: '100%',
+      curveType: 'function',
+      legend: 'none'
+    };
+
+    var chart = new google.visualization.LineChart(document.getElementById('earn-chart'));
+    var traceChart = document.getElementById('earn-chart');
+
+    var width = traceChart.offsetWidth;
+    var height = width / 2; // Calculate height as half of the width
+    traceChart.style.height = height + 'px';
+    chart.draw(data, options);
+  }
+
+  function handleChartResize() {
+      // Clear the existing chart
+      var traceChart = document.getElementById('count-chart');
+      traceChart.innerHTML = '';
+      var traceChart = document.getElementById('earn-chart');
+      traceChart.innerHTML = '';
+      var traceChart = document.getElementById('day-chart');
+      traceChart.innerHTML = '';
+
+      // Call drawMultSeries() to redraw the chart
+      drawcountChart();
+      drawearnChart();
+      drawdayChart();
+    }
+
+    // Attach the resize event handler
+    window.onresize = handleChartResize;
+    const stockItems = document.querySelectorAll('.stock-item');
+      stockItems.forEach((item) => {
+        item.addEventListener('click', function() {
+          const stockCode = this.dataset.stockCode;
+          const form = this.querySelector('form');
+          form.querySelector('input[name="stock_code"]').value = stockCode;
+          form.submit();
+        });
+      });
+</script>
+
+{% endblock %}

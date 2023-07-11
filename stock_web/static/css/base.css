@@ -1,0 +1,23 @@
+body {
+    background-color: #676767;
+}
+
+.navbar {
+    background-color: #676767;
+    padding: 0 10;
+}
+
+.navbar a, .navbar h5 {
+    color: white;
+}
+
+.navbar a:hover {
+  color: grey;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
