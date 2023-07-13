@@ -271,8 +271,8 @@ def home(request):
 
     trace_data_info = {}
     # Query the first 50 records ordered by pwp in descending order
-    pred5_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred5', wp__lt=F('pwp')).order_by('-percentage')[:10]
-    pred10_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred10', wp__lt=F('pwp')).order_by('-percentage')[:10]
+    pred5_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=75, model_name='pred5', wp__lt=F('pwp')).order_by('-percentage')[:10]
+    pred10_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=75, model_name='pred10', wp__lt=F('pwp')).order_by('-percentage')[:10]
 
 
 
