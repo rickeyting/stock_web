@@ -1,27 +1,39 @@
 from django.shortcuts import render
+import decimal
 from datetime import datetime, date, timedelta
 import pandas as pd
-from .models import StockInfo, ACCStocks, StocksType, StrategyMode, StocksHistory, File
-from django.db.models import Max, Min
+from .models import StockInfo, ACCStocks, StocksType, StrategyMode, StocksHistory, File, TypesInfo
+from django.db.models import Max, Min, F
 import math
 import os
 from django.conf import settings
 from django.contrib.auth.decorators import user_passes_test
+import time
 
+
+class TimeCheck:
+    def __init__(self):
+        self.start_time = None
+
+    def start(self):
+        self.start_time = time.time()
+
+    def end(self):
+        if self.start_time is None:
+            print("Please start the timer first.")
+        else:
+            end_time = time.time()
+            execution_time = end_time - self.start_time
+            print(f"Execution time: {execution_time} seconds")
 
 
 # Create your views here.
-def update_mode(mode_name):
+def update_mode(mode_name, current_date):
     mode, created = StrategyMode.objects.get_or_create(mode_name=mode_name)
-
-    try:
-        latest_date = StockInfo.objects.latest('date').date
-    except StockInfo.DoesNotExist:
-        latest_date = '2023-01-01'
-    if latest_date > date(2023, 3, 1):
+    if current_date > date(2023, 3, 1):
         exist_histories = mode.get_exist()
         for history in exist_histories:
-            stock_info = StockInfo.objects.get(stock_id=history.stock_id, date=latest_date)
+            stock_info = StockInfo.objects.get(stock_id=history.stock_id, date=current_date)
             current_price = stock_info.price
             history.current_price = current_price
             target = history.target
@@ -37,31 +49,20 @@ def update_mode(mode_name):
                 history.target -= range
             elif stock_percentage > 3:
                 history.target += range
-            if (history.buy_price > history.target) or (stock_close - float(history.buy_price))/float(history.buy_price) < -0.1:
+            if (stock_close > history.target) or (stock_close - history.buy_price)/history.buy_price < -0.1:
                 history.sell_price = stock_close
-                history.sell_date = latest_date
+                history.sell_date = current_date
             history.save()
         exist_histories = exist_histories.values_list('stock_id', flat=True)
-        all_acc_stocks = ACCStocks.objects.filter(model_name='pred10')
-        results = []
-        for acc_stock in all_acc_stocks:
-            if acc_stock.pred_high > 5:
-                value = acc_stock.pred_high_correct / acc_stock.pred_high
-                overall = acc_stock.high / acc_stock.count
-                rounded_value = round(value, 2)
-                if (overall < rounded_value) and (rounded_value > 0.8):
-                    results.append((acc_stock, rounded_value))
-        sorted_results = sorted(results, key=lambda x: x[1])
-        smallest_50 = sorted_results[:100]
-        for stock_item in smallest_50:
-            stock_id = stock_item[0].stock_id
-            stock_info = StockInfo.objects.get(stock_id=stock_id, date=latest_date)
-            stock_pred = stock_info.prediction2
-            stock_close = float(stock_info.price)
-            stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
-            range = round((stock_pred - stock_close)/5, 2)
-            if stock_id not in exist_histories and stock_percentage > 5:
-                stock_history = StocksHistory.objects.create(stock_id=stock_id, buy_price=stock_close, buy_date=latest_date, current_price=stock_close, target=stock_pred, range=range)
+        acc_stocks = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred10', percentage__gt=4, wp__lt=F('pwp')).order_by('-percentage')
+        for stock_item in acc_stocks:
+            stock_id = stock_item.stock_id
+            if stock_id not in exist_histories:
+                stock_info = StockInfo.objects.get(stock_id=stock_id, date=current_date)
+                stock_close = stock_info.price
+                stock_pred = stock_info.prediction2
+                range = round((stock_pred - stock_close) / 5)
+                stock_history = StocksHistory.objects.create(stock_id=stock_id, buy_price=stock_close, buy_date=current_date, current_price=stock_close, target=stock_pred, range=range)
                 mode.history.add(stock_history)
 
 
@@ -190,7 +191,7 @@ def classification(request):
 
 def strategy(request):
     try:
-        latest_date = StockInfo.objects.latest('date').date
+        latest_date = StockInfo.objects.latest('date').date - timedelta(days=1)
     except:
         latest_date = '2023-01-01'
     mode, created = StrategyMode.objects.get_or_create(mode_name='low_risk')
@@ -264,194 +265,34 @@ def strategy(request):
 
 def home(request):
     try:
-        latest_date = StockInfo.objects.latest('date').date
+        latest_date = StockInfo.objects.latest('date').date - timedelta(days=1)
     except:
         latest_date = '2023-01-01'
 
-    trace_data_info = {'title': 'Overview', 'title_name': '上市總攬'}
-    pred5_stock_infos = []
-    pred10_stock_infos = []
-    if latest_date != '2023-01-01':
-        # Retrieve all ACCStocks objects
-        all_acc_stocks = ACCStocks.objects.filter(model_name='pred5')
+    trace_data_info = {}
+    # Query the first 50 records ordered by pwp in descending order
+    pred5_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred5', wp__lt=F('pwp')).order_by('-percentage')[:10]
+    pred10_stock_infos = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred10', wp__lt=F('pwp')).order_by('-percentage')[:10]
 
-        # Calculate and round the square root of RMSE/count for each object
-        results = []
-        for acc_stock in all_acc_stocks:
-            if acc_stock.pred_high > 5:
-                value = acc_stock.pred_high_correct / acc_stock.pred_high
-                overall = acc_stock.high / acc_stock.count
-                rounded_value = round(value, 2)
-                if (request.method == 'POST') and (acc_stock.stock_id == str(request.POST.get('stock_code'))):
-                    trace_data_info['pred1_rmse'] = rounded_value
-                    trace_data_info['pred1_count'] = acc_stock.count
-                    trace_data_info['pred1_pred_count'] = acc_stock.pred_high
-                    trace_data_info['pred1_high_rate'] = round((acc_stock.high / acc_stock.count)*100)
-                    trace_data_info['pred1_low_rate'] = round((acc_stock.low / acc_stock.count)*100)
-                    trace_data_info['pred1_pred_high_rate'] = round((acc_stock.pred_high_correct / acc_stock.pred_high)*100)
-                    trace_data_info['pred1_pred_low_rate'] = round((acc_stock.pred_low_correct / acc_stock.pred_low)*100)
 
-                if (overall < rounded_value) and (rounded_value > 0.8):
-                    results.append((acc_stock, rounded_value))
 
-        # Sort the results based on the rounded value in ascending order
-        sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
-
-        # Retrieve the ten objects with the smallest rounded values
-        smallest_10 = sorted_results[:50]
-        for stock_item in smallest_10:
-            stock_id = stock_item[0].stock_id
-            stock_rmse = stock_item[1]
-            stock_name = StocksType.objects.get(stock_id=stock_id).stock_name
-            stock_info = StockInfo.objects.get(stock_id=stock_id, date=latest_date)
-            stock_pred = stock_info.prediction1
-            stock_close = float(stock_info.price)
-            stock_percentage = round(((stock_pred - stock_close)/stock_close)*100, 2)
-            pred5_stock_infos.append({
-                'stock_name': stock_name,
-                'stock_id': stock_id,
-                'stock_rmse': stock_rmse,
-                'count': stock_item[0].count,
-                'pred_count': stock_item[0].pred_high,
-                'high_rate': round((stock_item[0].high / stock_item[0].count)*100),
-                'low_rate': round((stock_item[0].low / stock_item[0].count)*100),
-                'pred_high_rate': round((stock_item[0].pred_high_correct / stock_item[0].pred_high)*100),
-                'pred_low_rate': round((stock_item[0].pred_low_correct / stock_item[0].pred_low)*100),
-                'stock_close': stock_close,
-                'stock_percent': stock_percentage
-            })
-        pred5_stock_infos = sorted(pred5_stock_infos, key=lambda x: x['stock_percent'], reverse=True)
-        pred5_stock_infos = pred5_stock_infos[:10]
-
-        # Retrieve all ACCStocks objects
-        all_acc_stocks = ACCStocks.objects.filter(model_name='pred10')
-
-        # Calculate and round the square root of RMSE/count for each object
-        results = []
-        for acc_stock in all_acc_stocks:
-            if acc_stock.pred_high > 5:
-                value = acc_stock.pred_high_correct / acc_stock.pred_high
-                overall = acc_stock.high / acc_stock.count
-                rounded_value = round(value, 2)
-                if (request.method == 'POST') and (acc_stock.stock_id == str(request.POST.get('stock_code'))):
-                    trace_data_info['pred2_rmse'] = rounded_value
-                    trace_data_info['pred2_count'] = acc_stock.count
-                    trace_data_info['pred2_pred_count'] = acc_stock.pred_high
-                    trace_data_info['pred2_high_rate'] = round((acc_stock.high / acc_stock.count) * 100)
-                    trace_data_info['pred2_low_rate'] = round((acc_stock.low / acc_stock.count) * 100)
-                    trace_data_info['pred2_pred_high_rate'] = round(
-                        (acc_stock.pred_high_correct / acc_stock.pred_high) * 100)
-                    trace_data_info['pred2_pred_low_rate'] = round(
-                        (acc_stock.pred_low_correct / acc_stock.pred_low) * 100)
-
-                if (overall < rounded_value) and (rounded_value > 0.8):
-                    results.append((acc_stock, rounded_value))
-
-        # Sort the results based on the rounded value in ascending order
-        sorted_results = sorted(results, key=lambda x: x[1], reverse=True)
-
-        # Retrieve the ten objects with the smallest rounded values
-        smallest_10 = sorted_results[:50]
-        for stock_item in smallest_10:
-            stock_id = stock_item[0].stock_id
-            stock_rmse = stock_item[1]
-            stock_name = StocksType.objects.get(stock_id=stock_id).stock_name
-            stock_info = StockInfo.objects.get(stock_id=stock_id, date=latest_date)
-            stock_pred = stock_info.prediction2
-            stock_close = float(stock_info.price)
-            stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
-            pred10_stock_infos.append({
-                'stock_name': stock_name,
-                'stock_id': stock_id,
-                'stock_rmse': stock_rmse,
-                'count': stock_item[0].count,
-                'pred_count': stock_item[0].pred_high,
-                'high_rate': round((stock_item[0].high / stock_item[0].count)*100),
-                'low_rate': round((stock_item[0].low / stock_item[0].count)*100),
-                'pred_high_rate': round((stock_item[0].pred_high_correct / stock_item[0].pred_high)*100),
-                'pred_low_rate': round((stock_item[0].pred_low_correct / stock_item[0].pred_low)*100),
-                'stock_close': stock_close,
-                'stock_percent': stock_percentage
-            })
-        pred10_stock_infos = sorted(pred10_stock_infos, key=lambda x: x['stock_percent'], reverse=True)
-        pred10_stock_infos = pred10_stock_infos[:10]
     # Get all StockInfo objects
     if request.method == 'POST':
         try:
-            stock_infos = StockInfo.objects.filter(stock_id=request.POST.get('stock_code'))
+            trace_data = StockInfo.objects.filter(stock_id=request.POST.get('stock_code'))
             trace_data_info['title'] = request.POST.get('stock_code')
             trace_data_info['title_name'] = StocksType.objects.get(stock_id=request.POST.get('stock_code')).stock_name
+            trace_data_info['pred5'] = ACCStocks.objects.get(stock_id=request.POST.get('stock_code'), model_name='pred5')
+            trace_data_info['pred10'] = ACCStocks.objects.get(stock_id=request.POST.get('stock_code'),
+                                                             model_name='pred10')
         except:
             return render(request, 'home.html', {'latest_date': latest_date, 'pred5_stock_infos': pred5_stock_infos,
                                                  'pred10_stock_infos': pred10_stock_infos,
                                                  'trace_data_info': trace_data_info})
     else:
-        stock_infos = StockInfo.objects.all()
-
-    # Create a dictionary to store the summed values
-    trace_data_sum = {}
-    trace_data = {}
-
-    # Iterate over each StockInfo object and sum the values by date
-    for stock_info in stock_infos:
-        date = stock_info.date
-        prediction1 = stock_info.prediction1
-        prediction2 = stock_info.prediction2
-        price = stock_info.price
-
-        if date in trace_data_sum:
-            trace_data_sum[date]['prediction1'] += prediction1
-            trace_data_sum[date]['prediction2'] += prediction2
-            trace_data_sum[date]['price'] += price
-        else:
-            trace_data_sum[date] = {
-                'prediction1': prediction1,
-                'prediction2': prediction2,
-                'price': price
-            }
-
-    # Round the summed values to 2 decimal places
-    for date in trace_data_sum:
-        trace_data_sum[date]['prediction1'] = round(trace_data_sum[date]['prediction1'], 2)
-        trace_data_sum[date]['prediction2'] = round(trace_data_sum[date]['prediction2'], 2)
-        trace_data_sum[date]['price'] = round(float(trace_data_sum[date]['price']), 2)
-
-    trace_data_sum = list(trace_data_sum.items())
-
-    for i in range(1, len(trace_data_sum)+1):
-        past_key, past_content = trace_data_sum[i - 1]
-        if i == 1:
-            prediction1 = 'null'
-            prediction2 = 'null'
-            price = past_content['price']
-        else:
-            new_key, new_content = trace_data_sum[i - 2]
-            prediction1 = new_content['prediction1']
-            prediction2 = new_content['prediction2']
-            price = past_content['price']
-
-        trace_data[past_key] = {
-            'prediction1': prediction1,
-            'prediction2': prediction2,
-            'price': price
-        }
-        if i == len(trace_data_sum):
-            past_key = past_key + timedelta(days=1)
-            prediction1 = past_content['prediction1']
-            prediction2 = past_content['prediction2']
-            trace_data_info['close'] = price
-            trace_data_info['pred1_percentage'] = round(((prediction1 - price) / price) * 100, 2)
-            trace_data_info['pred2_percentage'] = round(((prediction2 - price) / price) * 100, 2)
-            price = 'null'
-            trace_data[past_key] = {
-                'prediction1': prediction1,
-                'prediction2': prediction2,
-                'price': price
-            }
-            trace_data_info['pred1'] = prediction1
-            trace_data_info['pred2'] = prediction2
-
-
+        trace_data = TypesInfo.objects.filter(stock_id='0000')
+        trace_data_info['title'] = 'Overview'
+        trace_data_info['title_name'] = '上市總攬'
     return render(request, 'home.html', {'latest_date': latest_date, 'pred5_stock_infos': pred5_stock_infos, 'pred10_stock_infos': pred10_stock_infos, 'trace_data': trace_data, 'trace_data_info':trace_data_info})
 
 
@@ -480,118 +321,141 @@ def update_stock_types(request):
     return render(request, 'home.html', {})
 
 
+def update_overall(date, data=None):
+    try:
+        latest_date = TypesInfo.objects.latest('date').date
+    except:
+        latest_date = date
+    if not data:
+        past_overall = TypesInfo.objects.get(stock_id='0000', date=latest_date)
+        future_date = date + timedelta(days=1)
+        overall, created = TypesInfo.objects.get_or_create(stock_id='0000', date=future_date, defaults={
+            'prediction1': 0,
+            'prediction2': 0,
+        })
+        overall.pred1_future = past_overall.prediction1
+        overall.pred2_future = past_overall.prediction2
+        overall.save()
+    else:
+        overall, created = TypesInfo.objects.get_or_create(stock_id='0000', date=latest_date, defaults={
+            'prediction1': data[0],
+            'prediction2': data[1],
+            'price': data[2],
+        })
+        if not overall.price:
+            overall.price = 0
+        if latest_date != date:
+            overall.date = date
+        overall.prediction1 = data[0]
+        overall.prediction2 = data[1]
+        overall.price = data[2]
+        overall.save()
+
+
+
+
+
 def update_data(file, date=None):
     df = pd.read_csv(file)
-    df['voting'] = (df['pred5'] + df['pred10']) / 2
-    df['pred5'] = df['close'] * (1 + df['pred5'])
-    df['pred10'] = df['close'] * (1 + df['pred10'])
-    df['voting'] = df['close'] * (1 + df['voting'])
+    df['pred5'] = (df['close'] * (1 + df['pred5']))
+    df['pred10'] = (df['close'] * (1 + df['pred10']))
+    df['close'] = df['close'].apply(decimal.Decimal)
+    df['pred5'] = df['pred5'].apply(decimal.Decimal)
+    df['pred10'] = df['pred10'].apply(decimal.Decimal)
     df.dropna(inplace=True)
     # Extract the date from the filename
     if not date:
         filename = file.name
         date_str = filename.split('_')[1].split('.')[0]
         date = pd.to_datetime(date_str).date()
-
-    try:
-        latest_date = StockInfo.objects.latest('date').date
-        new_date = date  # Set the desired new date
-
-        # Retrieve all the StockInfo objects with the latest date
-        latest_stock_info_list = StockInfo.objects.filter(date=latest_date)
-        if len(StockInfo.objects.filter(date=new_date)) != 0:
-            return latest_date
-        # Create new StockInfo objects with the new date based on the latest objects
-        for latest_stock_info in latest_stock_info_list:
-            new_stock_info = StockInfo.objects.get_or_create(
-                date=new_date,
-                stock_id=latest_stock_info.stock_id,
-                prediction1=latest_stock_info.price,
-                prediction2=latest_stock_info.price,
-                voting=latest_stock_info.price,
-                price=latest_stock_info.price
-            )
-
-            # Optionally, you can also save the newly created object
-
-        # Use the new_stock_info objects as needed
-        # For example, you can access the date using new_stock_info.date
-    except StockInfo.DoesNotExist:
-        # Handle the case when no StockInfo objects exist
-        pass
-
-    # Process the data and update the StockInfo model
+    overall_data = [0, 0, 0]
     for index, row in df.iterrows():
         stock_id = row['stock_id'][:4]
         pred5 = row['pred5']
         pred10 = row['pred10']
-        voting = row['voting']
         close = row['close']
-
-        # Update the StockInfo model or perform any other necessary actions
         try:
-            stock_info, created = StockInfo.objects.get_or_create(date=date, stock_id=stock_id, defaults={
-                'prediction1': pred5, 'prediction2': pred10, 'voting': voting, 'price': close
-            })
-            if not created:
-                stock_info.prediction1 = pred5
-                stock_info.prediction2 = pred10
-                stock_info.voting = voting
-                stock_info.price = close
-                stock_info.save()
+            latest_date = StockInfo.objects.filter(stock_id=stock_id).latest('date').date
+            stock_info = StockInfo.objects.get(date=latest_date, stock_id=stock_id)
+            if latest_date != date:
+                stock_info.date = date
+            elif latest_date > date:
+                break
+            stock_info.prediction1 = pred5
+            stock_info.prediction2 = pred10
+            stock_info.price = close
+            stock_info.save()
+        except:
+            new_stock_info = StockInfo.objects.get_or_create(
+                date=date,
+                stock_id=stock_id,
+                defaults={'prediction1': pred5, 'prediction2': pred10, 'price': close}
+            )
+        overall_data[0] += pred5
+        overall_data[1] += pred10
+        overall_data[2] += close
 
-            # Update the ACCStocks model with pred correctness
-
-            # Retrieve the StockInfo objects for the specified stock_id, ordered by date from newest to oldest
-            stock_info_list = StockInfo.objects.filter(stock_id=stock_id).order_by('-date')
-            # Check if the list has at least 5 elements
-            if len(stock_info_list) >= 6:
-                # Retrieve the StockInfo object at the 5th row (index 4)
-                stock_info = stock_info_list[5]
-                past_pred5 = stock_info.prediction1
-                past_pred10 = stock_info.prediction2
-                past_voting = stock_info.voting
-                past_close = float(stock_info.price)
-                max_close = float(
-                    StockInfo.objects.filter(stock_id=stock_id).order_by('-date')[:4].aggregate(Max('price'))[
-                        'price__max'])
-                min_close = float(
-                    StockInfo.objects.filter(stock_id=stock_id).order_by('-date')[:4].aggregate(Min('price'))[
-                        'price__min'])
-                mean_price = (max_close + min_close) / 2
-                for model_name in ['pred5', 'pred10', 'voting']:
-                    if model_name == 'pred5':
-                        past_pred = past_pred5
-                    elif model_name == 'pred10':
-                        past_pred = past_pred10
-                    else:
-                        past_pred = past_voting
-                    acc_stock, _ = ACCStocks.objects.get_or_create(stock_id=stock_id, model_name=model_name, defaults={
-                        'count': 0, 'high': 0, 'low': 0, 'pred_high': 0, 'pred_low': 0, 'pred_high_correct': 0,
-                        'pred_low_correct': 0, 'rmse': 0
-                    })
-                    acc_stock.count += 1
-                    acc_stock.rmse += ((mean_price - past_pred) / past_pred) ** 2
+        future_date = date + timedelta(days=1)
+        new_stock_info = StockInfo.objects.get_or_create(
+            date=future_date,
+            stock_id=stock_id,
+            prediction1=pred5,
+            prediction2=pred10,
+            pred1_future=pred5,
+            pred2_future=pred10
+        )
+        # Retrieve the StockInfo objects for the specified stock_id, ordered by date from newest to oldest
+        stock_info_list = StockInfo.objects.filter(stock_id=stock_id).order_by('-date')[:7]
+        # Check if the list has at least 5 elements
+        if len(stock_info_list) >= 7:
+            # Retrieve the StockInfo object at the 5th row (index 4)
+            stock_info = stock_info_list[6]
+            #print(stock_info, stock_info.price, stock_info.date)
+            past_pred5 = stock_info.prediction1
+            past_pred10 = stock_info.prediction2
+            past_close = stock_info.price
+            max_close = StockInfo.objects.filter(stock_id=stock_id).order_by('-date')[1:5].aggregate(Max('price'))[
+                'price__max']
+            min_close = StockInfo.objects.filter(stock_id=stock_id).order_by('-date')[1:5].aggregate(Min('price'))[
+                'price__min']
+            mean_price = (max_close + min_close) / 2
+            for model_name in ['pred5', 'pred10']:
+                if model_name == 'pred5':
+                    past_pred = past_pred5
+                    percentage = round((pred5 - close) / close * 100)
+                else:
+                    past_pred = past_pred10
+                    percentage = round((pred10 - close) / close * 100)
+                acc_stock, _ = ACCStocks.objects.get_or_create(stock_id=stock_id, model_name=model_name, defaults={
+                    'count': 0, 'high': 0, 'low': 0, 'pred_high': 0, 'pred_low': 0, 'pred_high_correct': 0,
+                    'pred_low_correct': 0, 'rmse': 0, 'wp': 0, 'pwp': 0, 'percentage': 0
+                })
+                acc_stock.percentage = percentage
+                acc_stock.count += 1
+                acc_stock.rmse += ((mean_price - past_pred) / past_pred) ** 2
+                if mean_price > past_close:
+                    acc_stock.high += 1
+                if mean_price < past_close:
+                    acc_stock.low += 1
+                if (past_pred - past_close) / past_close * 100 > 1:
+                    acc_stock.pred_high += 1
                     if mean_price > past_close:
-                        acc_stock.high += 1
+                        acc_stock.pred_high_correct += 1
+                if (past_pred - past_close) / past_close * 100 < 1:
+                    acc_stock.pred_low += 1
                     if mean_price < past_close:
-                        acc_stock.low += 1
-                    if (past_pred - past_close) / past_close * 100 > 1:
-                        acc_stock.pred_high += 1
-                        if mean_price > past_close:
-                            acc_stock.pred_high_correct += 1
-                    if (past_pred - past_close) / past_close * 100 < 1:
-                        acc_stock.pred_low += 1
-                        if mean_price < past_close:
-                            acc_stock.pred_low_correct += 1
-                    acc_stock.save()
-        except Exception as e:
-            print(stock_id, e)
-            pass
+                        acc_stock.pred_low_correct += 1
+                acc_stock.wp = acc_stock.high / acc_stock.count * 100
+                if acc_stock.pred_high > 0:
+                    acc_stock.pwp = acc_stock.pred_high_correct / acc_stock.pred_high * 100
+                acc_stock.save()
+
     # Redirect back to the page or render a success message
-    latest_date = StockInfo.objects.latest('date').date
-    update_mode('low_risk')
-    return(latest_date)
+    update_overall(date, overall_data)
+    update_overall(date)
+    update_mode('low_risk', date)
+    print(date)
+    return(date)
 
 
 @user_passes_test(lambda user: user.is_superuser)
@@ -636,6 +500,7 @@ def refresh(request):
     create_files_from_upload_directory()
     ACCStocks.objects.all().delete()
     StockInfo.objects.all().delete()
+    TypesInfo.objects.all().delete()
     StrategyMode.objects.all().delete()
     StocksHistory.objects.all().delete()
     existing_files = File.objects.filter(file__icontains='pred_').order_by('-uploaded_at')

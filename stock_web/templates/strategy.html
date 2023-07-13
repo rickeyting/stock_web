@@ -26,6 +26,9 @@
                         <div class="col-12">
                             <p>Target:{{ stock_data.target }}</p>
                         </div>
+                        <div class="col-12">
+                            <p>Current:{{ stock_data.current_price }}</p>
+                        </div>
                     </div>
                     {% if stock_data.buy_price < stock_data.current_price %}
                         <div class="col-3">

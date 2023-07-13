@@ -1,33 +1,80 @@
 from django.db import models
+from django.db.models import UniqueConstraint
 
 
 # Create your models here.
 class StockInfo(models.Model):
-    date = models.DateField()
-    stock_id = models.CharField(max_length=50)
-    prediction1 = models.FloatField()
-    prediction2 = models.FloatField()
-    voting = models.FloatField()
-    price = models.FloatField()
+    date = models.DateField(db_index=True)
+    stock_id = models.CharField(max_length=50, db_index=True)
+    prediction1 = models.DecimalField(max_digits=10, decimal_places=2)
+    prediction2 = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pred1_future = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pred2_future = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
-        return f'{self.date} - {self.stock_id}'
+        return f'{self.stock_id}'
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=['date', 'stock_id'], name='unique_stock_per_date')
+        ]
+
+
+class TypesInfo(models.Model):
+    date = models.DateField()
+    stock_id = models.CharField(max_length=50)
+    prediction1 = models.DecimalField(max_digits=10, decimal_places=2)
+    prediction2 = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pred1_future = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    pred2_future = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    def __str__(self):
+        return f'{self.stock_id}'
 
 
 class ACCStocks(models.Model):
-    stock_id = models.CharField(max_length=50)
+    stock_id = models.CharField(max_length=50, db_index=True)
     model_name = models.CharField(max_length=50)
     count = models.IntegerField()
     high = models.IntegerField()
+    wp = models.DecimalField(max_digits=10, decimal_places=0)
     low = models.IntegerField()
     pred_high = models.IntegerField()
+    pwp = models.DecimalField(max_digits=10, decimal_places=0)
     pred_low = models.IntegerField()
     pred_high_correct = models.IntegerField()
     pred_low_correct = models.IntegerField()
-    rmse = models.FloatField()
+    rmse = models.DecimalField(max_digits=10, decimal_places=2)
+    percentage = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
         return self.stock_id
+
+    def get_stock_name(self):
+        stock = StocksType.objects.get(stock_id=self.stock_id)
+        return stock.stock_name
+
+    def get_close(self):
+        stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
+        return stock.price
+
+    def get_pred1(self):
+        stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
+        return stock.prediction1
+
+    def get_pred2(self):
+        stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
+        return stock.prediction2
+
+    def get_lp(self):
+        lp = round(self.low / self.count*100)
+        return lp
+
+    def get_plp(self):
+        plp = round(self.pred_low_correct / self.pred_low*100)
+        return plp
 
 
 class StocksType(models.Model):
@@ -94,10 +141,10 @@ class StrategyMode(models.Model):
         return round(total_earnings, 2), round(avg_earnings, 2)
 
     def get_exist(self):
-        return self.history.filter(sell_price__isnull=True)
+        return self.history.filter(sell_price__isnull=True).order_by('-buy_date')
 
     def get_sold(self):
-        return self.history.filter(sell_price__isnull=False)
+        return self.history.filter(sell_price__isnull=False).order_by('-buy_date')
 
     def get_history(self, stock_id):
         return self.history.filter(stock_id=stock_id, sell_price__isnull=True)

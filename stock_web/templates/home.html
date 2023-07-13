@@ -44,50 +44,49 @@
         {% if trace_data %}
         <div class="object-content-info">
             <a>{{ trace_data_info.title }} {{ trace_data_info.title_name }}</a>
-            {% if trace_data_info.pred1_rmse %}
-            <a>RMSE-5d: {{ trace_data_info.pred1_rmse }}</a>
-            <a>RMSE-10d: {{ trace_data_info.pred2_rmse }}</a>
+            {% if trace_data_info.pred5 %}
+            <a>RMSE-5d: {{ trace_data_info.pred5.rmse }}</a>
+            <a>RMSE-10d: {{ trace_data_info.pred10.rmse }}</a>
             {% endif %}
         </div>
         <div class="object-content">
           <div id="trace-chart"></div>
         </div>
+        {% if trace_data_info.pred5 %}
         <div class="object-content-info">
             <div class="row">
                 <div class="col-3">
                     <a>Model-5d:</a>
                 </div>
                 <div class="col-3">
-                    <a>Close:{{ trace_data_info.close }} </a>
+                    <a>Close:{{ trace_data_info.pred5.get_close }} </a>
                 </div>
                 <div class="col-3">
-                    {% if 0 < trace_data_info.pred1_percentage %}
-                    <a style="color: #830000;">Pred:{{trace_data_info.pred1}}</a>
+                    {% if 0 < trace_data_info.pred5.percentage %}
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred5.get_pred2}}</a>
                     {% else %}
-                    <a style="color: #00500b;">Pred:{{trace_data_info.pred1}}</a>
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred5.get_pred2}}</a>
                     {% endif %}
                 </div>
                 <div class="col-3">
-                    {% if 0 < trace_data_info.pred1_percentage %}
-                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred1_percentage }}%</a>
+                    {% if 0 < trace_data_info.pred5.percentage %}
+                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
                     {% else %}
-                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred1_percentage }}%</a>
+                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
                     {% endif %}
                 </div>
-                {% if trace_data_info.pred1_high_rate %}
                 <div class="col-3">
-                    <a>WP:{{ trace_data_info.pred1_high_rate }}%({{ trace_data_info.pred1_count }})</a>
+                    <a>WP:{{ trace_data_info.pred5.wp }}%({{ trace_data_info.pred5.count }})</a>
                 </div>
                 <div class="col-3">
-                    <a>LP:{{trace_data_info.pred1_low_rate}}%</a>
+                    <a>LP:{{trace_data_info.pred5.get_lp}}%</a>
                 </div>
                 <div class="col-3">
-                    <a>PWP:{{trace_data_info.pred1_pred_high_rate}}%({{trace_data_info.pred1_pred_count}})</a>
+                    <a>PWP:{{trace_data_info.pred5.pwp}}%({{trace_data_info.pred5.pred_high}})</a>
                 </div>
                 <div class="col-3">
-                    <a>PLP:{{trace_data_info.pred1_pred_low_rate}}%</a>
+                    <a>PLP:{{trace_data_info.pred5.get_plp}}%</a>
                 </div>
-                {% endif %}
             </div>
         </div>
         <div class="object-content-info">
@@ -96,41 +95,41 @@
                     <a>Model-10d:</a>
                 </div>
                 <div class="col-3">
-                    <a>Close:{{ trace_data_info.close }} </a>
+                    <a>Close:{{ trace_data_info.pred10.get_close }} </a>
                 </div>
                 <div class="col-3">
-                    {% if 0 < trace_data_info.pred2_percentage %}
-                    <a style="color: #830000;">Pred:{{trace_data_info.pred2}}</a>
+                    {% if 0 < trace_data_info.pred10.percentage %}
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred10.get_pred2}}</a>
                     {% else %}
-                    <a style="color: #00500b;">Pred:{{trace_data_info.pred2}}</a>
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred10.get_pred2}}</a>
                     {% endif %}
                 </div>
                 <div class="col-3">
-                    {% if 0 < trace_data_info.pred2_percentage %}
-                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred2_percentage }}%</a>
+                    {% if 0 < trace_data_info.pred10.percentage %}
+                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred10.percentage }}%</a>
                     {% else %}
-                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred2_percentage }}%</a>
+                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred10.percentage }}%</a>
                     {% endif %}
                 </div>
-                {% if trace_data_info.pred2_high_rate %}
                 <div class="col-3">
-                    <a>WP:{{ trace_data_info.pred2_high_rate }}%({{ trace_data_info.pred2_count }})</a>
+                    <a>WP:{{ trace_data_info.pred10.wp }}%({{ trace_data_info.pred10.count }})</a>
                 </div>
                 <div class="col-3">
-                    <a>LP:{{trace_data_info.pred2_low_rate}}%</a>
+                    <a>LP:{{trace_data_info.pred10.get_lp}}%</a>
                 </div>
                 <div class="col-3">
-                    <a>PWP:{{trace_data_info.pred2_pred_high_rate}}%({{trace_data_info.pred2_pred_count}})</a>
+                    <a>PWP:{{trace_data_info.pred10.pwp}}%({{trace_data_info.pred10.pred_high}})</a>
                 </div>
                 <div class="col-3">
-                    <a>PLP:{{trace_data_info.pred2_pred_low_rate}}%</a>
+                    <a>PLP:{{trace_data_info.pred10.get_plp}}%</a>
                 </div>
-                {% endif %}
             </div>
         </div>
+        {% else %}
         <div class="object-content-info">
             <div class="row">
                 <div class="col-12">
+                    <img class="info-image" src="{% static 'imgs/info.png' %}">
                     <a>RMSE:預測值及實際值的均方根誤差</a>
                 </div>
                 <div class="col-12">
@@ -141,6 +140,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
         {% else %}
         <div class="object-content">
             <h2>No Data</h2>
@@ -157,22 +157,22 @@
                     {% csrf_token %}
                     <input type="hidden" name="stock_code" value={{ stock_info.stock_id }}>
                     <div class="row stock_list">
-                        <div class="col-3"><p>{{ stock_info.stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
-                        <div class="col-3"><p>RMSE:{{ stock_info.stock_rmse }}</p></div>
-                        <div class="col-3"><p>價:{{ stock_info.stock_close }}</p></div>
-                        {% if 0 < stock_info.stock_percent %}
+                        <div class="col-3"><p>{{ stock_info.get_stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
+                        <div class="col-3"><p>RMSE:{{ stock_info.rmse }}</p></div>
+                        <div class="col-3"><p>價:{{ stock_info.get_close }}</p></div>
+                        {% if 0 < stock_info.percentage %}
                             <div class="col-3">
-                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.stock_percent }}%</a>
+                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.percentage }}%</a>
                             </div>
                         {% else %}
                             <div class="col-3">
-                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.stock_percent }}%</a>
+                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.percentage }}%</a>
                             </div>
                         {% endif %}
-                        <div class="col-3"><p>WP:{{ stock_info.high_rate }}%({{ stock_info.count }})</p></div>
-                        <div class="col-3"><p>LP:{{ stock_info.low_rate }}%</p></div>
-                        <div class="col-3"><p>PWP:{{ stock_info.pred_high_rate }}%({{ stock_info.pred_count }})</p></div>
-                        <div class="col-3"><p>PLP:{{ stock_info.pred_low_rate }}%</p></div>
+                        <div class="col-3"><p>WP:{{ stock_info.wp }}%({{ stock_info.count }})</p></div>
+                        <div class="col-3"><p>LP:{{ stock_info.get_lp }}%</p></div>
+                        <div class="col-3"><p>PWP:{{ stock_info.pwp }}%({{ stock_info.pred_high }})</p></div>
+                        <div class="col-3"><p>PLP:{{ stock_info.get_plp }}%</p></div>
                     </div>
                     </form>
                 </li>
@@ -188,22 +188,22 @@
                     {% csrf_token %}
                     <input type="hidden" name="stock_code" value={{ stock_info.stock_id }}>
                     <div class="row stock_list">
-                        <div class="col-3"><p>{{ stock_info.stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
-                        <div class="col-3"><p>RMSE:{{ stock_info.stock_rmse }}</p></div>
-                        <div class="col-3"><p>價:{{ stock_info.stock_close }}</p></div>
-                        {% if 0 < stock_info.stock_percent %}
+                        <div class="col-3"><p>{{ stock_info.get_stock_name }} <a>({{ stock_info.stock_id }})</a></p></div>
+                        <div class="col-3"><p>RMSE:{{ stock_info.rmse }}</p></div>
+                        <div class="col-3"><p>價:{{ stock_info.get_close }}</p></div>
+                        {% if 0 < stock_info.percentage %}
                             <div class="col-3">
-                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.stock_percent }}%</a>
+                                <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i> {{ stock_info.percentage }}%</a>
                             </div>
                         {% else %}
                             <div class="col-3">
-                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.stock_percent }}%</a>
+                                <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i> {{ stock_info.percentage }}%</a>
                             </div>
                         {% endif %}
-                        <div class="col-3"><p>WP:{{ stock_info.high_rate }}%({{ stock_info.count }})</p></div>
-                        <div class="col-3"><p>LP:{{ stock_info.low_rate }}%</p></div>
-                        <div class="col-3"><p>PWP:{{ stock_info.pred_high_rate }}%({{ stock_info.pred_count }})</p></div>
-                        <div class="col-3"><p>PLP:{{ stock_info.pred_low_rate }}%</p></div>
+                        <div class="col-3"><p>WP:{{ stock_info.wp }}%({{ stock_info.count }})</p></div>
+                        <div class="col-3"><p>LP:{{ stock_info.get_lp }}%</p></div>
+                        <div class="col-3"><p>PWP:{{ stock_info.pwp }}%({{ stock_info.pred_high }})</p></div>
+                        <div class="col-3"><p>PLP:{{ stock_info.get_plp }}%</p></div>
                     </div>
                     </form>
                 </li>
@@ -221,8 +221,25 @@
   function drawChart() {
     var data = google.visualization.arrayToDataTable([
       ['date', 'model-5d', 'model-10d', 'close'],
-      {% for date, data in trace_data.items %}
-      ['{{ date|date:"Y-m-d" }}', {{data.prediction1}}, {{data.prediction2}}, {{data.price}}],
+      {% for data in trace_data %}
+      [
+        '{{ data.date|date:"Y-m-d" }}',
+        {% if data.pred1_future %}
+          {{ data.pred1_future }},
+        {% else %}
+          null,
+        {% endif %}
+        {% if data.pred2_future %}
+          {{ data.pred2_future }},
+        {% else %}
+          null,
+        {% endif %}
+        {% if data.price %}
+          {{ data.price }},
+        {% else %}
+          null,
+        {% endif %}
+      ],
       {% endfor %}
     ]);
 
