@@ -9,6 +9,8 @@ import os
 from django.conf import settings
 from django.contrib.auth.decorators import user_passes_test
 import time
+import csv
+from django.http import HttpResponse
 
 
 class TimeCheck:
@@ -32,38 +34,65 @@ def update_mode(mode_name, current_date):
     mode, created = StrategyMode.objects.get_or_create(mode_name=mode_name)
     if current_date > date(2023, 3, 1):
         exist_histories = mode.get_exist()
-        for history in exist_histories:
-            stock_info = StockInfo.objects.get(stock_id=history.stock_id, date=current_date)
-            current_price = stock_info.price
-            history.current_price = current_price
-            target = history.target
-            range = history.range
-            stock_pred = stock_info.prediction2
-            stock_close = stock_info.price
-            stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
-            if stock_percentage > 8 and stock_pred > target:
-                range = round((stock_pred - stock_close) / 5)
-                history.target = stock_pred
-                history.target = range
-            elif stock_percentage < -3:
-                history.target -= range
-            elif stock_percentage > 3:
-                history.target += range
-            if (stock_close > history.target) or (stock_close - history.buy_price)/history.buy_price < -0.1:
-                history.sell_price = stock_close
-                history.sell_date = current_date
-            history.save()
-        exist_histories = exist_histories.values_list('stock_id', flat=True)
-        acc_stocks = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred10', percentage__gt=4, wp__lt=F('pwp')).order_by('-percentage')
+        histories_list = exist_histories.values_list('stock_id', flat=True)
+        # acc_stocks = ACCStocks.objects.filter(pred_high__gt=5, pwp__gt=80, model_name='pred10', percentage__gt=4, wp__lt=F('pwp')).order_by('-percentage')
+        acc_stocks = ACCStocks.objects.filter(pred_high__gt=10, model_name='pred10', pwp__gt=75, percentage__gt=3.5,
+                                              wp__lt=F('pwp') - 19).order_by('-percentage').order_by('-pwp')
         for stock_item in acc_stocks:
             stock_id = stock_item.stock_id
-            if stock_id not in exist_histories:
-                stock_info = StockInfo.objects.get(stock_id=stock_id, date=current_date)
-                stock_close = stock_info.price
-                stock_pred = stock_info.prediction2
-                range = round((stock_pred - stock_close) / 5)
-                stock_history = StocksHistory.objects.create(stock_id=stock_id, buy_price=stock_close, buy_date=current_date, current_price=stock_close, target=stock_pred, range=range)
+            if stock_id not in histories_list:
+                stock_close = stock_item.get_close()
+                stock_pred = stock_item.get_pred()
+                stock_rmse = stock_item.rmse
+                model_name = stock_item.model_name
+                percentage = stock_item.percentage
+                pred_high = stock_item.pred_high
+                pwp = stock_item.pwp
+                wp = stock_item.wp
+                range = round((stock_pred - stock_close) / 5, 2)
+                stock_history = StocksHistory.objects.create(
+                    stock_id=stock_id,
+                    buy_price=stock_close,
+                    buy_date=current_date,
+                    current_price=stock_close,
+                    target=stock_pred,
+                    range=range,
+                    rmse=stock_rmse,
+                    model_name=model_name,
+                    percentage=percentage,
+                    pred_high=pred_high,
+                    pwp=pwp,
+                    wp=wp,
+                )
                 mode.history.add(stock_history)
+
+            for history in exist_histories:
+                stock_info = ACCStocks.objects.get(stock_id=history.stock_id, model_name=history.model_name)
+                stock_pred = stock_info.get_pred()
+                #stock_info = ACCStocks.objects.get(stock_id=history.stock_id)
+                current_price = stock_info.get_close()
+                history.current_price = current_price
+                target = history.target
+                range = history.range
+                stock_close = current_price
+                stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
+                if stock_percentage > 3.5 and stock_pred > target:
+                    range = round((stock_pred - stock_close) / 5)
+                    history.target = stock_pred
+                    history.target = range
+                elif stock_percentage < -3:
+                    history.target -= range
+                elif stock_percentage > 3:
+                    history.target += range
+                if (current_date-history.buy_date).days > 1:
+                    if (stock_close > history.target) or (stock_close - history.buy_price)/history.buy_price < -0.1:
+                        history.sell_price = stock_close
+                        history.sell_date = current_date
+                    if (current_price < history.buy_price) and (current_date-history.buy_date).days > 20:
+                        history.sell_price = stock_close
+                        history.sell_date = current_date
+                history.save()
+
 
 
 def classification(request):
@@ -72,7 +101,7 @@ def classification(request):
     except:
         latest_date = '2023-01-01'
 
-    for model_name in ['pred5', 'pred10', 'voting']:
+    for model_name in ['pred5', 'pred10']:
         pred_all = ACCStocks.objects.filter(model_name=model_name)
         count = 0
         high = 0
@@ -520,3 +549,39 @@ def refresh(request):
         update_data(file_path, current_date)
 
     return render(request, 'home.html', {})
+
+
+def download_csv(request):
+    # Retrieve all StocksHistory objects
+    stocks_history = StocksHistory.objects.all()
+
+    # Create the CSV response
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="stocks_history.csv"'
+
+    # Create a CSV writer
+    writer = csv.writer(response)
+
+    # Write the header row
+    writer.writerow(['stock_id', 'buy_date', 'buy_price', 'target', 'range', 'current_price', 'sell_date', 'sell_price', 'rmse', 'model_name', 'percentage', 'pred_high', 'pwp'])
+
+    # Write the data rows
+    for stock_history in stocks_history:
+        writer.writerow([
+            stock_history.stock_id,
+            stock_history.buy_date,
+            stock_history.buy_price,
+            stock_history.target,
+            stock_history.range,
+            stock_history.current_price,
+            stock_history.sell_date,
+            stock_history.sell_price,
+            stock_history.rmse,
+            stock_history.model_name,
+            stock_history.percentage,
+            stock_history.pred_high,
+            stock_history.pwp,
+            stock_history.wp
+        ])
+
+    return response

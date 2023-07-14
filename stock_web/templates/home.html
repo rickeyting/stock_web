@@ -53,6 +53,9 @@
           <div id="trace-chart"></div>
         </div>
         {% if trace_data_info.pred5 %}
+        <div class="object-content">
+          <div id="chips-chart"></div>
+        </div>
         <div class="object-content-info">
             <div class="row">
                 <div class="col-3">
@@ -63,9 +66,9 @@
                 </div>
                 <div class="col-3">
                     {% if 0 < trace_data_info.pred5.percentage %}
-                    <a style="color: #830000;">Pred:{{trace_data_info.pred5.get_pred1}}</a>
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred5.get_pred}}</a>
                     {% else %}
-                    <a style="color: #00500b;">Pred:{{trace_data_info.pred5.get_pred1}}</a>
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred5.get_pred}}</a>
                     {% endif %}
                 </div>
                 <div class="col-3">
@@ -99,9 +102,9 @@
                 </div>
                 <div class="col-3">
                     {% if 0 < trace_data_info.pred10.percentage %}
-                    <a style="color: #830000;">Pred:{{trace_data_info.pred10.get_pred2}}</a>
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred10.get_pred}}</a>
                     {% else %}
-                    <a style="color: #00500b;">Pred:{{trace_data_info.pred10.get_pred2}}</a>
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred10.get_pred}}</a>
                     {% endif %}
                 </div>
                 <div class="col-3">
@@ -129,14 +132,16 @@
         <div class="object-content-info">
             <div class="row">
                 <div class="col-12">
-                    <img class="info-image" src="{% static 'imgs/info.png' %}">
-                    <a>RMSE:預測值及實際值的均方根誤差</a>
+                    <a>WP,原始勝率，例，台泥今年漲60次總天數100天，他的原始勝率就是60/100,60%.</a>
                 </div>
                 <div class="col-12">
-                    <a>WP:實際勝率. EX.6天漲4天跌,該股本身勝率為60%. LP:為敗率</a>
+                    <a>PWP模型預測勝率，預測會漲大於1趴的10筆，實際真的有6筆都漲了，pwp=6/10，60%.</a>
                 </div>
                 <div class="col-12">
-                    <a>PWP及PLP為預測的勝率及敗率.</a>
+                    <a>主畫面顯示的是，預測勝率>原始勝率且大於80%，然後按照最新預測百分比排列的前10筆.</a>
+                </div>
+                <div class="col-12">
+                    <a>Strategy,買賣策略，目前使用模型2交易，買入條件是PWP>WP,且大於75%，然後預測結果大於4%.並將其設定為目標值，滿足目標值就賣出.停損點-10%.</a>
                 </div>
             </div>
         </div>
@@ -259,13 +264,66 @@
     chart.draw(data, options);
   }
 
+  google.charts.setOnLoadCallback(drawChipsChart);
+  function drawChipsChart() {
+    var data = google.visualization.arrayToDataTable([
+      ['date', 'model-5d', 'model-10d'],
+      {% for data in trace_data %}
+      [
+        '{{ data.date|date:"Y-m-d" }}',
+        {% if data.get_pred1_percentage %}
+          {{ data.get_pred1_percentage }},
+        {% else %}
+          null,
+        {% endif %}
+        {% if data.get_pred2_percentage %}
+          {{ data.get_pred2_percentage }},
+        {% else %}
+          null,
+        {% endif %}
+      ],
+      {% endfor %}
+    ]);
+
+    var options = {
+      chartArea: {width: '80%'},
+      width: '100%',
+      curveType: 'function',
+      legend: 'none', // Remove legend
+      bar: { groupWidth: '100%' },
+      vAxis: {
+        viewWindow: {
+          max: 20,
+          min: -20
+        }
+      },
+      hAxis: {
+        gridlines: {
+          color: 'transparent' // Hide x-axis gridlines
+        },
+        textPosition: 'none' // Hide x-axis labels
+      }
+    };
+
+    var chart = new google.visualization.ColumnChart(document.getElementById('chips-chart'));
+    var traceChart = document.getElementById('chips-chart');
+
+    var width = traceChart.offsetWidth;
+    var height = width / 5; // Calculate height as half of the width
+    traceChart.style.height = height + 'px';
+    chart.draw(data, options);
+  }
+
   function handleChartResize() {
       // Clear the existing chart
       var traceChart = document.getElementById('trace-chart');
       traceChart.innerHTML = '';
+      var chipsChart = document.getElementById('chips-chart');
+      chipsChart.innerHTML = '';
 
       // Call drawMultSeries() to redraw the chart
       drawChart();
+      chipsChart();
     }
 
     // Attach the resize event handler

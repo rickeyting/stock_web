@@ -20,6 +20,18 @@ class StockInfo(models.Model):
             UniqueConstraint(fields=['date', 'stock_id'], name='unique_stock_per_date')
         ]
 
+    def get_pred1_percentage(self):
+        if self.price:
+            return round(((self.prediction1 - self.price) / self.price) * 100, 2)
+        else:
+            return None
+
+    def get_pred2_percentage(self):
+        if self.price:
+            return round(((self.prediction2 - self.price) / self.price) * 100, 2)
+        else:
+            return None
+
 
 class TypesInfo(models.Model):
     date = models.DateField()
@@ -60,13 +72,13 @@ class ACCStocks(models.Model):
         stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
         return stock.price
 
-    def get_pred1(self):
+    def get_pred(self):
         stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
-        return stock.prediction1
-
-    def get_pred2(self):
-        stock = StockInfo.objects.filter(stock_id=self.stock_id).order_by('-date')[1]
-        return stock.prediction2
+        if self.model_name == 'pred5':
+            pred = stock.prediction1
+        else:
+            pred = stock.prediction2
+        return pred
 
     def get_lp(self):
         lp = round(self.low / self.count*100)
@@ -94,6 +106,13 @@ class StocksHistory(models.Model):
     current_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     sell_date = models.DateField(null=True, blank=True)
     sell_price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+
+    rmse = models.DecimalField(max_digits=10, decimal_places=2)
+    model_name = models.CharField(max_length=50)
+    percentage = models.DecimalField(max_digits=10, decimal_places=2)
+    pred_high = models.IntegerField()
+    pwp = models.DecimalField(max_digits=10, decimal_places=0)
+    wp = models.DecimalField(max_digits=10, decimal_places=0)
 
     def calculate_percentage(self):
         if self.sell_price is not None:

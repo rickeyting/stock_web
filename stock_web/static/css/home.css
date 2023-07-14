@@ -42,7 +42,7 @@ li div {
   width: 100%
 }
 
-#trace-chart, #count-chart, #earn-chart, #day-chart {
+#trace-chart, #count-chart, #earn-chart, #day-chart, #chips-chart {
   width: 100%;
 }
 
@@ -99,9 +99,15 @@ li form {
 }
 
 .object-content-info .row .col-12 a {
-        font-size: 8px;
+        font-size: 9px;
         color: #a3a3a3;
+        padding: 0;
     }
+
+.object-content-info .row .col-12 {
+    padding: 0;
+    margin: 0;
+}
 
 .row {
     padding: 0;

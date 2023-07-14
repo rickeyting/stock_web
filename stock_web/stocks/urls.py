@@ -28,4 +28,5 @@ urlpatterns = [
     path('update-pred/', views.update_daily_data, name='update_daily_data'),
     path('update-types/', views.update_stock_types, name='update_stock_types'),
     path('clean-data/', views.clean_all_data, name='clean_all_data'),
+    path('download-csv/', views.download_csv, name='download_csv'),
 ]
