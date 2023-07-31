@@ -59,42 +59,6 @@
         <div class="object-content-info">
             <div class="row">
                 <div class="col-3">
-                    <a>Model-5d:</a>
-                </div>
-                <div class="col-3">
-                    <a>Close:{{ trace_data_info.pred5.get_close }} </a>
-                </div>
-                <div class="col-3">
-                    {% if 0 < trace_data_info.pred5.percentage %}
-                    <a style="color: #830000;">Pred:{{trace_data_info.pred5.get_pred}}</a>
-                    {% else %}
-                    <a style="color: #00500b;">Pred:{{trace_data_info.pred5.get_pred}}</a>
-                    {% endif %}
-                </div>
-                <div class="col-3">
-                    {% if 0 < trace_data_info.pred5.percentage %}
-                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
-                    {% else %}
-                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
-                    {% endif %}
-                </div>
-                <div class="col-3">
-                    <a>WP:{{ trace_data_info.pred5.wp }}%({{ trace_data_info.pred5.count }})</a>
-                </div>
-                <div class="col-3">
-                    <a>LP:{{trace_data_info.pred5.get_lp}}%</a>
-                </div>
-                <div class="col-3">
-                    <a>PWP:{{trace_data_info.pred5.pwp}}%({{trace_data_info.pred5.pred_high}})</a>
-                </div>
-                <div class="col-3">
-                    <a>PLP:{{trace_data_info.pred5.get_plp}}%</a>
-                </div>
-            </div>
-        </div>
-        <div class="object-content-info">
-            <div class="row">
-                <div class="col-3">
                     <a>Model-10d:</a>
                 </div>
                 <div class="col-3">
@@ -128,6 +92,42 @@
                 </div>
             </div>
         </div>
+        <div class="object-content-info">
+            <div class="row">
+                <div class="col-3">
+                    <a>Testing Model:</a>
+                </div>
+                <div class="col-3">
+                    <a>Close:{{ trace_data_info.pred5.get_close }} </a>
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred5.percentage %}
+                    <a style="color: #830000;">Pred:{{trace_data_info.pred5.get_pred}}</a>
+                    {% else %}
+                    <a style="color: #00500b;">Pred:{{trace_data_info.pred5.get_pred}}</a>
+                    {% endif %}
+                </div>
+                <div class="col-3">
+                    {% if 0 < trace_data_info.pred5.percentage %}
+                    <a style="color: #830000;"><i class="bi bi-arrow-up-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
+                    {% else %}
+                    <a style="color: #00500b;"><i class="bi bi-arrow-down-circle"></i>{{ trace_data_info.pred5.percentage }}%</a>
+                    {% endif %}
+                </div>
+                <div class="col-3">
+                    <a>WP:{{ trace_data_info.pred5.wp }}%({{ trace_data_info.pred5.count }})</a>
+                </div>
+                <div class="col-3">
+                    <a>LP:{{trace_data_info.pred5.get_lp}}%</a>
+                </div>
+                <div class="col-3">
+                    <a>PWP:{{trace_data_info.pred5.pwp}}%({{trace_data_info.pred5.pred_high}})</a>
+                </div>
+                <div class="col-3">
+                    <a>PLP:{{trace_data_info.pred5.get_plp}}%</a>
+                </div>
+            </div>
+        </div>
         {% else %}
         <div class="object-content-info">
             <div class="row">
@@ -154,9 +154,9 @@
     </div>
     <div class="col-lg-5">
         <div class="stock-board">
-            <h5>Model-5 days: </h5>
+            <h5>Model-10 days: </h5>
             <ul>
-            {% for stock_info in pred5_stock_infos %}
+            {% for stock_info in pred10_stock_infos %}
                 <li class="stock-item" data-stock-code="{{ stock_info.stock_id }}">
                     <form method="post" action="{% url 'home' %}">
                     {% csrf_token %}
@@ -185,9 +185,9 @@
             </ul>
         </div>
         <div class="stock-board">
-            <h5>Model-10 days: </h5>
+            <h5>Testing Model: </h5>
             <ul>
-            {% for stock_info in pred10_stock_infos %}
+            {% for stock_info in pred5_stock_infos %}
                 <li class="stock-item" data-stock-code="{{ stock_info.stock_id }}">
                     <form method="post" action="{% url 'home' %}">
                     {% csrf_token %}

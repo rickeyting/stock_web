@@ -66,32 +66,32 @@ def update_mode(mode_name, current_date):
                 )
                 mode.history.add(stock_history)
 
-            for history in exist_histories:
-                stock_info = ACCStocks.objects.get(stock_id=history.stock_id, model_name=history.model_name)
-                stock_pred = stock_info.get_pred()
-                #stock_info = ACCStocks.objects.get(stock_id=history.stock_id)
-                current_price = stock_info.get_close()
-                history.current_price = current_price
-                target = history.target
-                range = history.range
-                stock_close = current_price
-                stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
-                if stock_percentage > 3.5 and stock_pred > target:
-                    range = round((stock_pred - stock_close) / 5)
-                    history.target = stock_pred
-                    history.target = range
-                elif stock_percentage < -3:
-                    history.target -= range
-                elif stock_percentage > 3:
-                    history.target += range
-                if (current_date-history.buy_date).days > 1:
-                    if (stock_close > history.target) or (stock_close - history.buy_price)/history.buy_price < -0.1:
-                        history.sell_price = stock_close
-                        history.sell_date = current_date
-                    if (current_price < history.buy_price) and (current_date-history.buy_date).days > 20:
-                        history.sell_price = stock_close
-                        history.sell_date = current_date
-                history.save()
+        for history in exist_histories:
+            stock_info = ACCStocks.objects.get(stock_id=history.stock_id, model_name=history.model_name)
+            stock_pred = stock_info.get_pred()
+            #stock_info = ACCStocks.objects.get(stock_id=history.stock_id)
+            current_price = stock_info.get_close()
+            history.current_price = current_price
+            target = history.target
+            range = history.range
+            stock_close = current_price
+            stock_percentage = round(((stock_pred - stock_close) / stock_close) * 100, 2)
+            if stock_percentage > 3.5 and stock_pred > target:
+                range = round((stock_pred - stock_close) / 5)
+                history.target = stock_pred
+                history.target = range
+            elif stock_percentage < -3:
+                history.target -= range
+            elif stock_percentage > 3:
+                history.target += range
+            if (current_date-history.buy_date).days > 1:
+                if (stock_close > history.target) or (stock_close - history.buy_price)/history.buy_price < -0.1:
+                    history.sell_price = stock_close
+                    history.sell_date = current_date
+                if (current_price < history.buy_price) and (current_date-history.buy_date).days > 20:
+                    history.sell_price = stock_close
+                    history.sell_date = current_date
+            history.save()
 
 
 
@@ -399,7 +399,7 @@ def update_data(file, date=None):
         date = pd.to_datetime(date_str).date()
     overall_data = [0, 0, 0]
     for index, row in df.iterrows():
-        stock_id = row['stock_id'][:4]
+        stock_id = str(row['stock_id'])[:4]
         pred5 = row['pred5']
         pred10 = row['pred10']
         close = row['close']
